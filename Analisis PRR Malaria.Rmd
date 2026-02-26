@@ -1,0 +1,479 @@
+```{r}
+library(readxl)
+library(dplyr)
+library(AER)
+library(car)
+library(lmtest)
+library(nortest)
+library(Metrics)
+library(MASS)
+library(ggplot2)
+```
+
+```{r}
+malaria <- read_excel("C:/Users/syarani/OneDrive/Dokumen/r code/r code/Malaria2.xlsx")
+View(malaria)
+```
+
+```{r}
+formula_2 <- JumlahKasus ~  JumlahPendudukMiskin + JumlahPuskesmas + TidakadaToilet + AirMinumLayak + RumahLayakHuni  + KeluhanKesehatan + JaminanKesehatan
+```
+
+```{r}
+sum(malaria$JumlahPendudukMiskin)
+```
+
+## Deskriptif Data
+
+```{r}
+num <- malaria[c("JumlahKasus", "JumlahPendudukMiskin", "JumlahPuskesmas", "TidakadaToilet", "AirMinumLayak", "RumahLayakHuni", "KeluhanKesehatan", "JaminanKesehatan")]
+
+mean <- sapply(num, mean, na.rm = TRUE)
+median <- sapply(num, median, na.rm = TRUE)
+min <- sapply(num, min, na.rm = TRUE)
+max <- sapply(num, max, na.rm = TRUE)
+variance <- sapply(num, var, na.rm = TRUE)
+stdv <- sapply(num, sd, na.rm = TRUE)
+rbind(mean, median, min, max, variance, stdv)
+```
+
+## Matriks korelasi
+
+```{r}
+cor_matrix <- cor(num)
+print(cor_matrix)
+```
+
+```{r}
+cor.test(malaria$JumlahPendudukMiskin, malaria$JumlahKasus, method = 'pearson') 
+```
+
+```{r}
+library(corrplot)
+c <- cor(num)
+corrplot(c, type = "upper", method = "number")
+```
+
+## Distribusi poisson
+
+```{r}
+var_y <- malaria$JumlahKasus
+var_Y <- cbind(var_y)
+ks.test(var_Y, "ppois", mean(var_y))
+```
+
+## Histogram
+
+```{r}
+hist(malaria$JumlahKasus,
+     col = 'skyblue',
+     xlab = "Jumlah Kasus",
+     family = "serif")
+
+```
+
+```{r}
+hist(malaria$JumlahPendudukMiskin,
+     col = 'skyblue',
+     xlab = "Jumlah Penduduk Miskin",
+     family = "serif")
+```
+
+```{r}
+hist(malaria$JumlahPuskesmas,
+     col = 'skyblue',
+     xlab = "Jumlah Puskesmas",
+     family = "serif")
+```
+
+```{r}
+hist(malaria$TidakadaToilet,
+     col = 'skyblue',
+     xlab = "Tidak Ada Toilet",
+     family = "serif")
+```
+
+```{r}
+hist(malaria$AirMinumLayak,
+     col = 'skyblue',
+     xlab = "Air Minum Layak",
+     family = "serif")
+```
+
+```{r}
+hist(malaria$RumahLayakHuni,
+     col = 'skyblue',
+     xlab = "Rumah Layak Huni",
+     family = "serif")
+```
+
+```{r}
+hist(malaria$KeluhanKesehatan,
+     col = 'skyblue',
+     xlab = "Keluhan Kesehatan",
+     family = "serif")
+```
+
+```{r}
+hist(malaria$JaminanKesehatan,
+     col = 'skyblue',
+     xlab = "Jaminan Kesehatan",
+     family = "serif")
+```
+
+## Model OLS
+
+```{r}
+new_model_lm <- lm(formula_2, data = malaria)
+summary(new_model_lm)
+```
+
+
+```{r}
+bptest(new_model_lm)
+```
+
+```{r}
+dwtest(new_model_lm)
+```
+
+```{r}
+lillie.test(residuals(new_model_lm))
+```
+
+```{r}
+vif(new_model_lm)
+```
+
+```{r}
+mse_ols <- Metrics::mse(malaria$JumlahKasus, new_model_lm$fitted.values)
+rmse_ols <- Metrics::rmse(malaria$JumlahKasus, new_model_lm$fitted.values)
+print(paste("MSE:", mse_ols))
+print(paste("RMSE:", rmse_ols))
+```
+
+## Model OLS dengan variabel signifikan
+
+```{r}
+new_model_lm2 <- lm(JumlahKasus ~  JumlahPendudukMiskin + TidakadaToilet + KeluhanKesehatan + JaminanKesehatan, data = malaria)
+summary(new_model_lm2)
+```
+## Model OLS tanpa variabel X6
+
+```{r}
+new_model_lm3 <- lm(JumlahKasus ~  JumlahPendudukMiskin + TidakadaToilet + JaminanKesehatan, data = malaria)
+summary(new_model_lm3)
+```
+
+```{r}
+bptest(new_model_lm3)
+dwtest(new_model_lm3)
+lillie.test(residuals(new_model_lm3))
+vif(new_model_lm3)
+```
+
+
+```{r}
+mse_ols3 <- Metrics::mse(malaria$JumlahKasus, new_model_lm3$fitted.values)
+rmse_ols3 <- Metrics::rmse(malaria$JumlahKasus, new_model_lm3$fitted.values)
+print(paste("MSE:", mse_ols3))
+print(paste("RMSE:", rmse_ols3))
+```
+
+
+## Model Poisson
+
+```{r}
+new_glm_model <- glm(formula_2, data = malaria, family = poisson())
+summary(new_glm_model)
+```
+```{r}
+mod_pois_nol = glm(malaria$JumlahKasus ~ 1, family = poisson(link = "log"), data = malaria)
+lrtest(new_glm_model, mod_pois_nol)
+```
+
+```{r}
+library(DescTools)
+
+pseudo_glm <- PseudoR2(new_glm_model, which = "McFadden")
+pseudo_glm
+```
+
+```{r}
+dispersiontest(new_glm_model)
+```
+
+```{r}
+vif(new_glm_model)
+```
+
+```{r}
+mse_pois <- Metrics::mse(malaria$JumlahKasus, new_glm_model$fitted.values)
+rmse_pois <-  Metrics::rmse(malaria$JumlahKasus, new_glm_model$fitted.values)
+
+print(paste("MSE:", mse_pois))
+print(paste("RMSE:", rmse_pois))
+```
+## Model Poisson dengan variabel tidak multikolinear 
+
+```{r}
+new_glm_model2 <- glm(JumlahKasus ~  AirMinumLayak + RumahLayakHuni  + KeluhanKesehatan + JaminanKesehatan, data = malaria, family = poisson())
+summary(new_glm_model2)
+```
+```{r}
+dispersiontest(new_glm_model2)
+```
+```{r}
+vif(new_glm_model2)
+```
+
+```{r}
+mse_pois2 <- Metrics::mse(malaria$JumlahKasus, new_glm_model2$fitted.values)
+rmse_pois2 <-  Metrics::rmse(malaria$JumlahKasus, new_glm_model2$fitted.values)
+
+print(paste("MSE:", mse_pois2))
+print(paste("RMSE:", rmse_pois2))
+```
+
+```{r}
+pseudo_glm2 <- PseudoR2(new_glm_model2, which = "McFadden")
+pseudo_glm2
+```
+
+
+## Estimasi parameter ridge untuk model Poisson Ridge Regression
+
+```{r}
+# Data centering & scaling
+x <- scale(as.matrix(malaria[, c("JumlahPendudukMiskin", "JumlahPuskesmas",
+                           "TidakadaToilet", "AirMinumLayak",
+                           "RumahLayakHuni", "KeluhanKesehatan",
+                           "JaminanKesehatan")]))
+y <- scale(malaria$JumlahKasus)
+
+# Tambahkan intercept
+X_with_intercept <- cbind(1, x)
+colnames(X_with_intercept)[1] <- "Intercept"
+```
+
+```{r}
+data.frame(x,y)
+```
+
+```{r}
+stand <- data.frame(y, x)
+
+mean <- sapply(stand, mean, na.rm = TRUE)
+median <- sapply(stand, median, na.rm = TRUE)
+min <- sapply(stand, min, na.rm = TRUE)
+max <- sapply(stand, max, na.rm = TRUE)
+variance <- sapply(stand, var, na.rm = TRUE)
+stdv <- sapply(stand, sd, na.rm = TRUE)
+rbind(mean, median, min, max, variance, stdv)
+```
+
+```{r}
+beta_glm <- coef(new_glm_model)
+mu_hat <- fitted(new_glm_model)
+A <- diag(as.vector(mu_hat))
+
+# Get residuals
+residuals <- residuals(new_glm_model, type = "response")
+
+# X includes an intercept
+X_with_intercept <- cbind(1, x)
+
+# Calculate X'AX matrix
+XtAX <- t(X_with_intercept) %*% A %*% X_with_intercept
+
+# Get eigenvalues and eigenvectors of X'AX
+eigen_XtAX <- eigen(XtAX)
+gamma_matrix <- eigen_XtAX$vectors
+eigenvalues <- eigen_XtAX$values
+
+# Calculate alpha_hat = gamma * beta_glm
+alpha_hat <- gamma_matrix %*% beta_glm
+
+# Calculate sigma_hat_squared (residual mean square error)
+n <- nrow(malaria)
+p <- length(beta_glm)
+sigma_hat_squared <- sum(residuals^2) / (n - p - 1)
+
+# Calculate m_i values
+m_i <- sqrt(sigma_hat_squared / (alpha_hat^2))
+
+# Estimate k as the max of 1/m_i
+k_estimate <- max(1 / m_i)
+print(paste("Estimated ridge parameter (k):", k_estimate))
+```
+
+
+## Model PRR
+
+```{r}
+beta_glm <- coef(new_glm_model)
+mu_hat <- fitted(new_glm_model)
+A <- diag(as.vector(mu_hat))
+I <- diag(ncol(X_with_intercept))
+
+term1 <- solve(k_estimate * I + t(X_with_intercept) %*% A %*% X_with_intercept)
+term2 <- t(X_with_intercept) %*% A %*% X_with_intercept
+beta_prr <- term1 %*% term2 %*% beta_glm
+beta_prr
+```
+
+```{r}
+# Prediksi PRR
+yhat_prr <- exp(X_with_intercept %*% beta_prr)
+
+# Evaluasi PRR
+mse_prr <- mean((y - yhat_prr)^2)
+rmse_prr <- sqrt(mse_prr)
+mae_prr <- mean(abs(y - yhat_prr))
+ss_res_prr <- sum((y - yhat_prr)^2)
+ss_tot_prr <- sum((y - mean(y))^2)
+r2_prr <- 1 - (ss_res_prr / ss_tot_prr)
+
+cat("\nMSE PRR:", mse_prr, "\n")
+cat("RMSE PRR:", rmse_prr, "\n")
+cat("R² PRR:", r2_prr, "\n")
+```
+
+```{r}
+mu_prr <- as.vector(yhat_prr)
+
+logLik_prr <- sum(
+  y * log(mu_prr) - mu_prr - lgamma(y + 1)
+)
+
+logLik_prr
+```
+
+```{r}
+mu_null <- mean(y)
+
+logLik_null <- sum(
+  y * log(mu_null) - mu_null - lgamma(y + 1)
+)
+
+logLik_null
+```
+
+```{r}
+pseudo_R2_McFadden_PRR <- 1 - (logLik_prr / logLik_null)
+
+cat("Pseudo R² McFadden (PRR):", pseudo_R2_McFadden_PRR, "\n")
+```
+## unstandardize
+
+```{r}
+# Simpan mean dan sd
+x_mean <- attr(x, "scaled:center")
+x_sd   <- attr(x, "scaled:scale")
+
+y_mean <- attr(y, "scaled:center")
+y_sd   <- attr(y, "scaled:scale")
+```
+
+```{r}
+# Unstandardize X
+x_unscaled <- sweep(x, 2, x_sd, "*")   # X* × SD
+x_unscaled <- sweep(x_unscaled, 2, x_mean, "+")  # + mean
+
+# Unstandardize Y
+y_unscaled <- y * y_sd + y_mean
+
+X_with_intercept_unscaled <- cbind(1, x_unscaled)
+colnames(X_with_intercept_unscaled)[1] <- "Intercept"
+```
+
+```{r}
+head(cbind(
+  original = malaria$JumlahKasus,
+  standardized = y[1:6],
+  unscaled = y_unscaled[1:6]
+))
+```
+
+```{r}
+# Koefisien
+beta0_std <- beta_prr[1]
+beta_std  <- beta_prr[-1]
+
+#beta0_std <- -10.469
+#beta_std <- c(4.666e-4, 0.2803, 0.4994, -0.0369, 0.0917, 0.1132, 0.0317)
+
+means <- c(51253.18, 20.09, 6.48, 87.59, 23.20, 29.37, 57.63)
+sds   <- c(26920.89, 8.19, 5.92, 9.86, 13.59, 8.69, 14.87)
+
+# perhitungan
+slopes_unstd <- beta_std / sds
+intercept_corr <- sum(beta_std * means / sds)
+beta0_unstd <- beta0_std - intercept_corr
+
+coef_names <- c("Intercept", paste0("X", 1:7))
+coef_unstd <- c(beta0_unstd, slopes_unstd)
+result <- data.frame(Term = coef_names, Estimate = coef_unstd, stringsAsFactors = FALSE)
+
+result$Estimate <- round(result$Estimate, 10)
+print(result)
+```
+## Uji wald
+
+```{r}
+XtWX <- t(X_with_intercept) %*% A %*% X_with_intercept
+I <- diag(ncol(X_with_intercept))
+
+Cov_beta <- solve(XtWX + k_estimate * I) %*% XtWX %*% solve(XtWX + k_estimate * I)
+se_values <- sqrt(diag(Cov_beta))
+
+wald_stat <- (beta_prr / se_values)^2
+
+# Hitung p-value dari distribusi chi-square (df = 1)
+p_value <- 1 - pchisq(wald_stat, df = 1)
+
+# Gabungkan hasil ke tabel
+wald_test <- data.frame(
+  Beta_PRR = as.numeric(beta_prr),
+  SE = se_values,
+  Wald_Stat = as.numeric(wald_stat),
+  p_value = as.numeric(p_value)
+)
+
+print(wald_test)
+```
+
+## Evaluation Model
+
+```{r}
+data.frame(
+  Model = c("OLS", "Poisson", "Poisson Ridge"),
+  MSE = c(mse_ols, mse_pois, mse_prr),
+  RMSE = c(rmse_ols, rmse_pois, rmse_prr),
+  Rsquared = c("0.8178", "-", "-"),
+  PseudoR2 = c("-", pseudo_glm, pseudo_R2_McFadden_PRR)
+)
+```
+
+# Model Generalized Poisson Regression (GPR) untuk menangani overdispersi
+
+```{r}
+library(VGAM)
+
+model_gpr <- vglm(formula_2, family = genpoisson0, data = malaria)
+
+summary(model_gpr)
+```
+
+```{r}
+# Prediksi GPR
+yhat_gpr <- fitted(model_gpr)
+
+# Evaluasi GPR
+mse_gpr <- mean((y - yhat_gpr)^2)
+rmse_gpr <- sqrt(mse_gpr)
+mae_gpr <- mean(abs(y - yhat_gpr))
+
+cat("\nMSE GPR:", mse_gpr, "\n")
+cat("RMSE GPR:", rmse_gpr, "\n")
+```
